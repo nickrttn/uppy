@@ -17,13 +17,20 @@ const cwd = fileURLToPath(new URL('../', import.meta.url))
 for await (const line of readLines(stdin)) {
   const { location, name } = JSON.parse(line)
   if (existsSync(path.join(cwd, location, 'tsconfig.json'))) {
-    const cp = spawn(exe, [...argv0, 'tsc', '-p', location], {
+    const cp1 = spawn(exe, [...argv0, 'tsc', '--build', location, '--clean'], {
+      stdio: 'inherit',
+      cwd,
+    })
+    const cp2 = spawn(exe, [...argv0, 'tsc', '--build', location], {
       stdio: 'inherit',
       cwd,
     })
     await Promise.race([
-      once(cp, 'error').then(err => Promise.reject(err)),
-      await once(cp, 'exit')
+      once(cp1, 'error').then(err => Promise.reject(err)),
+      await once(cp1, 'exit')
+        .then(([code]) => (code && Promise.reject(new Error(`Non-zero exit code when cleaning "${name}": ${code}`)))),
+      once(cp2, 'error').then(err => Promise.reject(err)),
+      await once(cp2, 'exit')
         .then(([code]) => (code && Promise.reject(new Error(`Non-zero exit code when building "${name}": ${code}`)))),
     ])
   }
